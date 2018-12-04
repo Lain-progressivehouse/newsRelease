@@ -8,6 +8,8 @@ import scipy as sp
 import bhtsne
 import datetime
 import time
+from sklearn.cluster import KMeans
+import collections
 
 """
 散布図作成用
@@ -58,8 +60,6 @@ def create_wordvec_scatter(matrix, vocab):
 
 
 def retern_stock_scatter(tsne, document_list):
-	# dirlist = ["canon", "epson", "fujitsu", "hitachi", "j-display", "kyocera", "mitsubishielectric", "nidec",
-	#            "panasonic", "ricoh", "sharp", "sony", "tdk"]
 
 	stocks = dataFrame.DataFrame.get_stocks()
 	companys = document_list["company"]
@@ -87,34 +87,50 @@ def retern_stock_scatter(tsne, document_list):
 			print(" ".join(news))
 
 
+def retern_stock_cluster(tsne, document_list, cluster=50):
+	# Kmeansでクラスタリング
+	pred = KMeans(n_clusters=cluster).fit_predict(tsne)
 
-def retern_stock_scatter_com(tsne, document_list, company):
 	stocks = dataFrame.DataFrame.get_stocks()
 	companys = document_list["company"]
 	dates = document_list["date"]
 
-	floating_value = []
+	# リターンをリストで取得
+	return_value = []
 	for company, date in zip(companys, dates):
 		# 変動値のリストを取得
-		floating_value.append(get_return(company, date, stocks))
+		return_value.append(get_return(company, date, stocks))
 
+	return_value = np.array(return_value)
 
-	doc = document_list[document_list["company"] == company]
-	tsne_com = tsne[document_list["company"] == company]
+	# {クラスタ: (x,y), リターン}
+	clt_dict = collections.defaultdict(list)
+	for clt, pos, value in zip(pred, tsne, return_value):
+		clt_dict[clt].append([pos, value])
 
-	floating_value = []
-	for date in doc["date"]:
-		floating_value.append(get_return(company, date, stocks))
+	# ポジション
+	annotate_positions = []
+	# リターン
+	annotate_return = []
 
-	floating_value = np.array(floating_value)
-	median = np.median(floating_value)
+	for i in range(0, cluster):
+		# クラスタの中心点を求める
+		annotate_positions.append(np.average([l[0] for l in clt_dict[i]], axis=0))
 
+		# クラスタ内のリターンの平均を求める
+		annotate_return.append(np.average([l[1] for l in clt_dict[i] if l != -1]))
 
-	doc_tsne = pd.DataFrame(tsne_com[:, 0], columns=["x"])
-	doc_tsne["y"] = pd.DataFrame(tsne_com[:, 1])
-	doc_tsne["floating"] = floating_value > median
+	doc_tsne = pd.DataFrame(tsne[:, 0], columns=["x"])
+	doc_tsne["y"] = pd.DataFrame(tsne[:, 1])
+	doc_tsne["class"] = list(document_list["company"])
 	sns.set_style("darkgrid")
-	sns.lmplot(data=doc_tsne, x="x", y="y", hue="floating", fit_reg=False, size=10)
+	sns.lmplot(data=doc_tsne, x="x", y="y", hue="class", legend=False, fit_reg=False, size=10)
+
+	# アノテーション
+	for pos, rtn in zip(annotate_positions, annotate_return):
+		plt.annotate("{:.4%}".format(rtn), xy=(pos[0], pos[1]), xytext=(0, 0), textcoords='offset points', va="center", ha="center",
+		             fontsize=12)
+
 	# 図を表示
 	plt.show()
 
@@ -157,7 +173,7 @@ def get_return(company, date, stocks):
 
 	# 値が存在するなら差の絶対値を返す. 存在しないなら-1を返す
 	if start != -1 and end != -1:
-		# return abs(start - end) / start
-		return (end - start) / start
+		return abs(start - end) / start
+		# return (end - start) / start
 	else:
 		return -1
