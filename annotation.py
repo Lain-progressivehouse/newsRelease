@@ -114,6 +114,8 @@ def main(document_list, prob_wordvecs, tsne, cluster=100):
 			# topic_words.append(words.pop(np.argmax(scores))[0])
 
 			# もし12字以上なら8文字で改行+半角スペース2つを挿入
+			if len(scores) == 0:
+				break
 			topic_word = words.pop(np.argmax(scores))[0]
 			if len(topic_word) >= 12:
 				topic_word = "-\n".join(textwrap.wrap(topic_word, 8))

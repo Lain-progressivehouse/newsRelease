@@ -49,9 +49,5 @@ def word_vec_average(document_list, word2vec_model):
 
 
 	tsne = bhtsne.tsne(plainDocVec_all.astype(sp.float64), dimensions=2, perplexity=30.0, theta=0.5, rand_seed=-1)
-	doc_tsne = pd.DataFrame(tsne[:, 0], columns=["x"])
-	doc_tsne["y"] = pd.DataFrame(tsne[:, 1])
-	doc_tsne["class"] = list(document_list["company"])
-	sns.lmplot(data=doc_tsne, x="x", y="y", hue="class", fit_reg=False, size=10)
 
-	plt.show()
+	return tsne

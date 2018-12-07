@@ -16,6 +16,8 @@ def learn_doc2vec(document_list):
 
 	doc2vec_model = Doc2Vec(documents=trainings, workers=num_workers, hs=0, dm=0, negative=10, epochs=25,
 	                        vector_size=num_features, min_count=min_word_count, window=context, sample=downsampling, seed=1)
-	doc2vec_model.init_sims(replace=True)
+
+	document_list.rain
+	# doc2vec_model.init_sims(replace=True)
 
 	return doc2vec_model
