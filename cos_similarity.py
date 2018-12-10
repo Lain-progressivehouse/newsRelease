@@ -90,9 +90,10 @@ def most_similarity_for_fastText(model, word, n=5):
 		count += 1
 
 
-def nearest_distance(matrix, position, n=5):
+def nearest_distance(document_list, matrix, position, n=5):
 	"""
 	二次元に次元削除したベクトルを指定した位置から近い順で出力
+	:param document_list: 文書
 	:param matrix: 二次元行列
 	:param position: 位置
 	:param n: 出力する数
@@ -112,6 +113,7 @@ def nearest_distance(matrix, position, n=5):
 		if count == n:
 			break
 		print(str(k) + ": " + str(matrix[k]))
+		print(document_list["date"][k] + ": " + " ".join(document_list["news"][k]))
 		count += 1
 		idx.append(k)
 
