@@ -16,14 +16,12 @@ import collections
 """
 
 
-def create_docvec_scatter(matrix):
+def create_docvec_scatter(matrix, document_list):
 	"""
 	文書ベクトルの散布図を作成する
 	:param matrix: 行列
 	:return:
 	"""
-	document_list = dataFrame.DataFrame.get_document_list()
-
 	tsne = bhtsne.tsne(matrix.astype(sp.float64), dimensions=2, perplexity=30.0, theta=0.5, rand_seed=-1)
 	doc_tsne = pd.DataFrame(tsne[:, 0], columns=["x"])
 	doc_tsne["y"] = pd.DataFrame(tsne[:, 1])
@@ -97,7 +95,13 @@ def retern_stock_cluster(tsne, document_list, cluster=50):
 
 	# リターンをリストで取得
 	return_value = []
-	for company, date in zip(companys, dates):
+	# 企業, 日付, クラスタ
+	com_day_clt = []
+	for company, date, clt in zip(companys, dates, pred):
+		if [company, date, clt] in com_day_clt:
+			return_value.append((-1))
+			continue
+		com_day_clt.append([company, date, clt])
 		# 変動値のリストを取得
 		return_value.append(get_return(company, date, stocks))
 
