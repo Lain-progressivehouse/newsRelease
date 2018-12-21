@@ -10,6 +10,9 @@ import datetime
 import time
 from sklearn.cluster import KMeans
 import collections
+from scdv import annotation
+import logging
+from operator import itemgetter
 
 """
 散布図作成用
@@ -84,6 +87,173 @@ def retern_stock_scatter(tsne, document_list):
 		if is_hight_return:
 			print(" ".join(news))
 
+def multidimensional_retern(prob_wordvecs, document_list, pred, cluster=50):
+	# pred = KMeans(n_clusters=cluster).fit_predict(scdv)
+
+	stocks = dataFrame.DataFrame.get_stocks()
+	companys = document_list["company"]
+	dates = document_list["date"]
+
+	# リターンをリストで取得
+	return_value = []
+	# 企業, 日付, クラスタ
+	com_day_clt = []
+	for company, date, clt in zip(companys, dates, pred):
+		# 同じ企業が同じ日に，同じクラスタに属する記事を出している場合除外
+		if [company, date, clt] in com_day_clt:
+			return_value.append((-1))
+			continue
+		com_day_clt.append([company, date, clt])
+		# 変動値のリストを取得
+		return_value.append(get_return(company, date, stocks))
+
+
+	a = np.array([[c, r] for c, r in zip(pred, return_value) if r != -1])
+	doc_tsne = pd.DataFrame(list(map(int, a[:, 0])), columns=["x"])
+	doc_tsne["y"] = pd.DataFrame(a[:, 1])
+	sns.set_style("darkgrid")
+	plt.figure(figsize=(15, 8))
+	sns.boxplot(data=doc_tsne, x="x", y="y")
+	plt.show()
+
+
+	return_value = np.array(return_value)
+
+	# {クラスタ: [リターン]}
+	clt_dict = collections.defaultdict(list)
+	for clt, value in zip(pred, return_value):
+		clt_dict[clt].append(value)
+
+	# リターン
+	annotate_return = []
+
+	for i in range(0, cluster):
+		# クラスタ内のリターンの平均を求める
+		annotate_return.append(np.average([l for l in clt_dict[i] if l != -1]))
+
+	# {クラスタ: 文書のインデックス}
+	clt_dict = collections.defaultdict(list)
+	for clt, doc in zip(pred, document_list["news"]):
+		clt_dict[clt].append(doc)
+
+	# 単語
+	annotate_words = []
+
+	for i in range(0, cluster):
+		# (単語, 出現数)
+		words = annotation.count_words([l for l in clt_dict[i]])
+
+		# 単語のスコアを取得
+		scores = []
+		for word in words:
+			try:
+				scores.append(annotation.get_score(prob_wordvecs[word[0]], word[1]))
+			except:
+				scores.append(0)
+
+			# クラスタのスコアの高い単語を取得
+			topic_words = []
+
+		for i in range(0, 10):
+			try:
+				topic_word = words.pop(np.argmax(scores))[0]
+			except:
+				topic_word = "null"
+			topic_words.append(topic_word)
+			try:
+				scores.pop(np.argmax(scores))
+			except:
+				continue
+
+		annotate_words.append(", ".join(topic_words))
+
+	for i, word, stock in sorted(zip(range(0, cluster), annotate_words, annotate_return), key=lambda x:x[2], reverse=True):
+		print("{:.2%}".format(stock) + ": " + word)
+
+	# for i, word, stock in zip(range(0, cluster), annotate_words, annotate_return):
+	# 	print("[" + str(i) + "] " + "{:.2%}".format(stock) + ": " + word)
+
+def multidimensional_production_increase_rate(prob_wordvecs, document_list, pred, cluster=50):
+	# pred = KMeans(n_clusters=cluster).fit_predict(scdv)
+
+	stocks = dataFrame.DataFrame.get_stocks()
+	companys = document_list["company"]
+	dates = document_list["date"]
+
+	# リターンをリストで取得
+	return_value = []
+	# 企業, 日付, クラスタ
+	com_day_clt = []
+	for company, date, clt in zip(companys, dates, pred):
+		# 同じ企業が同じ日に，同じクラスタに属する記事を出している場合除外
+		if [company, date, clt] in com_day_clt:
+			return_value.append((-1))
+			continue
+		com_day_clt.append([company, date, clt])
+		# 変動値のリストを取得
+		return_value.append(get_production_increase_rate(company, date, stocks))
+
+	a = np.array([[c, r] for c, r in zip(pred, return_value) if r != -1])
+	doc_tsne = pd.DataFrame(list(map(int, a[:, 0])), columns=["x"])
+	doc_tsne["y"] = pd.DataFrame(a[:, 1])
+	sns.set_style("darkgrid")
+	plt.figure(figsize=(15, 8))
+	sns.boxplot(data=doc_tsne, x="x", y="y")
+	plt.show()
+
+	return_value = np.array(return_value)
+
+	# {クラスタ: [リターン]}
+	clt_dict = collections.defaultdict(list)
+	for clt, value in zip(pred, return_value):
+		clt_dict[clt].append(value)
+
+	# リターン
+	annotate_return = []
+
+	for i in range(0, cluster):
+		# クラスタ内のリターンの平均を求める
+		annotate_return.append(np.average([l for l in clt_dict[i] if l != -1]))
+
+	# {クラスタ: 文書のインデックス}
+	clt_dict = collections.defaultdict(list)
+	for clt, doc in zip(pred, document_list["news"]):
+		clt_dict[clt].append(doc)
+
+	# 単語
+	annotate_words = []
+
+	for i in range(0, cluster):
+		# (単語, 出現数)
+		words = annotation.count_words([l for l in clt_dict[i]])
+
+		# 単語のスコアを取得
+		scores = []
+		for word in words:
+			try:
+				scores.append(annotation.get_score(prob_wordvecs[word[0]], word[1]))
+			except:
+				scores.append(0)
+
+			# クラスタのスコアの高い単語を取得
+			topic_words = []
+
+		for i in range(0, 10):
+			try:
+				topic_word = words.pop(np.argmax(scores))[0]
+			except:
+				topic_word = "null"
+			topic_words.append(topic_word)
+			try:
+				scores.pop(np.argmax(scores))
+			except:
+				continue
+
+		annotate_words.append(", ".join(topic_words))
+
+	for i, word, stock in sorted(zip(range(0, cluster), annotate_words, annotate_return), key=lambda x:x[2], reverse=True):
+		print("{:.2%}".format(stock) + ": " + word)
+
 
 def retern_stock_cluster(tsne, document_list, cluster=50):
 	# Kmeansでクラスタリング
@@ -98,6 +268,7 @@ def retern_stock_cluster(tsne, document_list, cluster=50):
 	# 企業, 日付, クラスタ
 	com_day_clt = []
 	for company, date, clt in zip(companys, dates, pred):
+		# 同じ企業が同じ日に，同じクラスタに属する記事を出している場合除外
 		if [company, date, clt] in com_day_clt:
 			return_value.append((-1))
 			continue
@@ -134,7 +305,7 @@ def retern_stock_cluster(tsne, document_list, cluster=50):
 	sns.lmplot(data=doc_tsne, x="x", y="y", hue="class", legend=False, fit_reg=False, size=10)
 
 	# アノテーション
-	for pos, rtn in zip(annotate_positions, annotate_return):
+	for pos, rtn in zip(annotate_positions, annotate_return).sort():
 		plt.annotate("{:.2%}".format(rtn), xy=(pos[0], pos[1]), xytext=(0, 0), textcoords='offset points', va="center", ha="center",
 		             fontsize=12)
 
@@ -206,7 +377,7 @@ def get_return(company, date, stocks, is_abs=True):
 		# start = line.get("始値").item()
 
 		# 当日以外ならその日以前の直近の終値を取得
-		lines = stocks[company][date - datetime.timedelta(days=30):date]
+		lines = stocks[company][date - datetime.timedelta(days=30):date - datetime.timedelta(days=1)]
 		# サイズが0でないなら
 		if lines.size != 0:
 			line = lines.tail(1)
@@ -215,7 +386,7 @@ def get_return(company, date, stocks, is_abs=True):
 
 	else:
 		# 当日以外ならその日以前の直近の終値を取得
-		lines = stocks[company][date - datetime.timedelta(days=30):date]
+		lines = stocks[company][date - datetime.timedelta(days=30):date - datetime.timedelta(days=1)]
 		# サイズが0でないなら
 		if lines.size != 0:
 			line = lines.tail(1)
@@ -237,3 +408,56 @@ def get_return(company, date, stocks, is_abs=True):
 			return (end - start) / start
 	else:
 		return -1
+
+def get_production_increase_rate(company, date, stocks):
+	"""
+	出来高増加率を返す
+	:param company:
+	:param date:
+	:param stocks:
+	:return:
+	"""
+	# 日付をdatetime型に変換
+	date = datetime.datetime.strptime(date, "%Y-%m-%d")
+
+	start = -1
+	end = -1
+
+	# dateの当日が存在するかどうか
+	if date in stocks[company].index:
+		# 存在するならその日の始値を取得
+		# line = stocks[company][date == stocks[company].index]
+		# start = line.get("始値").item()
+
+		# 当日以外ならその日以前の直近の終値を取得
+		lines = stocks[company][date - datetime.timedelta(days=30):date - datetime.timedelta(days=1)]
+		# サイズが0でないなら
+		if lines.size != 0:
+			line = lines.tail(1)
+			# start = line.get("終値").item()
+			start = line.get("出来高").item()
+
+	else:
+		# 当日以外ならその日以前の直近の終値を取得
+		lines = stocks[company][date - datetime.timedelta(days=30):date - datetime.timedelta(days=1)]
+		# サイズが0でないなら
+		if lines.size != 0:
+			line = lines.tail(1)
+			# start = line.get("終値").item()
+			start = line.get("出来高").item()
+
+	# dateの次の日以降の終値を取得
+	# lines = stocks[company][date + datetime.timedelta(days=1):date + datetime.timedelta(days=31)]
+	lines = stocks[company][date:date + datetime.timedelta(days=31)]
+	if lines.size != 0:
+		line = lines.head(1)
+		# end = line.get("終値").item()
+		end = line.get("出来高").item()
+
+	# 値が存在するなら差の絶対値を返す. 存在しないなら-1を返す
+	if start != -1 and end != -1:
+		return (end - start) / start
+
+	else:
+		return -1
+
