@@ -63,14 +63,15 @@ def calc_center(positions):
 	return np.average(positions, axis=0)
 
 
-def main(document_list, prob_wordvecs, tsne, cluster=100):
+def main(document_list, prob_wordvecs, tsne, pred, cluster=50):
 	# クラスタ数
 	num_clt = cluster
 
 	# document_list = pickle.load(open("./model/for_papers/document_list.pickle", "rb"))
 	# prob_wordvecs = pickle.load(open("./model/fastText_prob_wordvecs_2", "rb"))
 	# tsne = np.load("./model/tsne_2.npy")
-	pred = KMeans(n_clusters=num_clt).fit_predict(tsne)
+
+	#pred = KMeans(n_clusters=num_clt).fit_predict(tsne)
 
 	# {クラスタ: 文書のインデックス}
 	clt_dict = collections.defaultdict(list)
@@ -141,13 +142,14 @@ def main(document_list, prob_wordvecs, tsne, cluster=100):
 	# doc_tsne["class"] = list(pred)
 	# 企業ごとで色分け
 	doc_tsne["class"] = list(document_list["company"])
-	# sns.set_style("darkgrid")
-	sns.lmplot(data=doc_tsne, x="x", y="y", hue="class", legend=False, fit_reg=False, size=10)
+	sns.set_style("darkgrid")
+	sns.set(font="IPAexGothic")
+	sns.lmplot(data=doc_tsne, x="x", y="y", hue="class", legend=False, fit_reg=False, size=20, scatter_kws={"s": 200})
 
 	# アノテーション
 	for pos, word in zip(annotate_positions, annotate_words):
 		plt.annotate(word, xy=(pos[0], pos[1]), xytext=(0, 0), textcoords='offset points', va="center", ha="center",
-		             fontsize=12)
+		             fontsize=18, weight='bold')
 
 	plt.show()
 

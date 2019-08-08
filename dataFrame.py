@@ -79,7 +79,7 @@ class DataFrame(object):
 		# wordlist = filter(("").__ne__, wordlist)
 
 		tokenizer = MeCab.Tagger("-Ochasen -d /usr/local/lib/mecab/dic/mecab-ipadic-neologd")
-		tokenizer.parse(" ")
+		tokenizer.parse("")
 		node = tokenizer.parseToNode(document)
 		keywords = []
 		while node:
@@ -148,7 +148,7 @@ class DataFrame(object):
 	@staticmethod
 	def get_stocks():
 		dirlist = ["canon", "epson", "fujitsu", "hitachi", "j-display", "kyocera", "mitsubishielectric", "nidec",
-		           "panasonic", "ricoh", "sharp", "sony", "tdk"]
+		           "panasonic", "ricoh", "sharp", "sony", "tdk", "nikkei"]
 
 		stock = {}
 		for company in dirlist:

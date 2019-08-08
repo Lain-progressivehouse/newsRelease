@@ -90,6 +90,13 @@ def retern_stock_scatter(tsne, document_list):
 def multidimensional_retern(prob_wordvecs, document_list, pred, cluster=50):
 	# pred = KMeans(n_clusters=cluster).fit_predict(scdv)
 
+	# 製品系: 0, 経営系: 1, その他: 2, 技術系: 3
+	num = [1, 1, 3, 3, 3, 0, 3, 0, 2, 0,
+	       3, 0, 1, 1, 3, 0, 0, 0, 1, 0,
+	       3, 2, 0, 0, 0, 2, 2, 0, 2, 1,
+	       2, 3, 0, 0, 1, 2, 0, 2, 3, 3,
+	       0, 2, 2, 2, 2, 0, 2, 2, 2, 3]
+
 	stocks = dataFrame.DataFrame.get_stocks()
 	companys = document_list["company"]
 	dates = document_list["date"]
@@ -105,15 +112,15 @@ def multidimensional_retern(prob_wordvecs, document_list, pred, cluster=50):
 			continue
 		com_day_clt.append([company, date, clt])
 		# 変動値のリストを取得
-		return_value.append(get_return(company, date, stocks))
+		return_value.append(get_return(company, date, stocks, is_abs=False))
 
-
-	a = np.array([[c, r] for c, r in zip(pred, return_value) if r != -1])
-	doc_tsne = pd.DataFrame(list(map(int, a[:, 0])), columns=["x"])
-	doc_tsne["y"] = pd.DataFrame(a[:, 1])
+	a = np.array([[c, r] for c, r in zip(pred, return_value) if r != -1 and r > -0.7])
+	doc_tsne = pd.DataFrame(list(map(int, a[:, 0])), columns=["cluster"])
+	doc_tsne["return"] = pd.DataFrame(a[:, 1])
+	doc_tsne["num"] = [num[i] for i in list(map(int, a[:, 0]))]
 	sns.set_style("darkgrid")
 	plt.figure(figsize=(15, 8))
-	sns.boxplot(data=doc_tsne, x="x", y="y")
+	sns.boxplot(data=doc_tsne, x="cluster", y="return", hue="num", dodge=False)
 	plt.show()
 
 
@@ -129,7 +136,20 @@ def multidimensional_retern(prob_wordvecs, document_list, pred, cluster=50):
 
 	for i in range(0, cluster):
 		# クラスタ内のリターンの平均を求める
-		annotate_return.append(np.average([l for l in clt_dict[i] if l != -1]))
+		# annotate_return.append(np.average([l for l in clt_dict[i] if l != -1]))
+		annotate_return.append(np.std([l for l in clt_dict[i] if l != -1 and l > -0.7]))
+
+
+
+	a = np.array([[c, r] for c, r in zip(pred, return_value) if r != -1])
+	# doc_tsne = pd.DataFrame(list(range(0, cluster)), columns=["cluster"])
+	# doc_tsne["Volatility"] = pd.DataFrame(annotate_return)
+	# doc_tsne["num"] = num
+	# sns.set_style("darkgrid")
+	# sns.set_context("poster")
+	# plt.figure(figsize=(15, 8))
+	# sns.barplot(data=doc_tsne, x="cluster", y="Volatility", hue="num", dodge=False)
+	# plt.show()
 
 	# {クラスタ: 文書のインデックス}
 	clt_dict = collections.defaultdict(list)
@@ -154,7 +174,7 @@ def multidimensional_retern(prob_wordvecs, document_list, pred, cluster=50):
 			# クラスタのスコアの高い単語を取得
 			topic_words = []
 
-		for i in range(0, 10):
+		for i in range(0, 5):
 			try:
 				topic_word = words.pop(np.argmax(scores))[0]
 			except:
@@ -165,13 +185,17 @@ def multidimensional_retern(prob_wordvecs, document_list, pred, cluster=50):
 			except:
 				continue
 
-		annotate_words.append(", ".join(topic_words))
+		annotate_words.append(",".join(topic_words))
 
-	for i, word, stock in sorted(zip(range(0, cluster), annotate_words, annotate_return), key=lambda x:x[2], reverse=True):
-		print("{:.2%}".format(stock) + ": " + word)
+	# for i, word, stock in sorted(zip(range(0, cluster), annotate_words, annotate_return), key=lambda x:x[2], reverse=True):
+	# 	print("{:.2%}".format(stock) + ": " + word)
 
-	# for i, word, stock in zip(range(0, cluster), annotate_words, annotate_return):
-	# 	print("[" + str(i) + "] " + "{:.2%}".format(stock) + ": " + word)
+	csv = ""
+	for i, word, stock in zip(range(0, cluster), annotate_words, annotate_return):
+		print("[" + str(i) + "] " + "{:.2%}".format(stock) + ": " + word)
+		csv += str(i) + "," + word + "\n"
+
+	return csv
 
 def multidimensional_production_increase_rate(prob_wordvecs, document_list, pred, cluster=50):
 	# pred = KMeans(n_clusters=cluster).fit_predict(scdv)
@@ -361,8 +385,6 @@ def get_return(company, date, stocks, is_abs=True):
 	:return: リターン
 	"""
 	# 株価情報取得
-	# stocks = dataFrame.DataFrame.get_stocks()
-	d = date
 
 	# 日付をdatetime型に変換
 	date = datetime.datetime.strptime(date, "%Y-%m-%d")
@@ -408,6 +430,83 @@ def get_return(company, date, stocks, is_abs=True):
 			return (end - start) / start
 	else:
 		return -1
+
+def get_beta_value(prob_wordvecs, document_list, pred, cluster=50):
+	stocks = dataFrame.DataFrame.get_stocks()
+	companys = document_list["company"]
+	dates = document_list["date"]
+
+	# リターンをリストで取得
+	return_value = []
+	# 日経平均のリターンをリストで取得
+	nikkei_value = []
+	# 企業, 日付, クラスタ
+	com_day_clt = []
+	for company, date, clt in zip(companys, dates, pred):
+		# 同じ企業が同じ日に，同じクラスタに属する記事を出している場合除外
+		if [company, date, clt] in com_day_clt:
+			return_value.append((-1))
+			continue
+		com_day_clt.append([company, date, clt])
+		# 変動値のリストを取得
+		return_value.append(get_return(company, date, stocks, is_abs=False))
+		nikkei_value.append(get_return(company, date, stocks, is_abs=False))
+
+	return_value = np.array(return_value)
+	nikkei_value = np.array(return_value)
+
+	# {クラスタ: [リターン, 日経]}
+	clt_dict = collections.defaultdict(list)
+	for clt, value, nikkei in zip(pred, return_value, nikkei_value):
+		clt_dict[clt].append([value, nikkei])
+
+	# 共分散
+	beta_list = []
+
+	for i in range(0, cluster):
+		# クラスタ内のリターンの平均を求める
+		a = np.cov([[l[0] for l in clt_dict[i] if l[0] != -1 and l[1] != -1], [l[1] for l in clt_dict[i] if l[0] != -1 and l[1] != -1]])
+		b = np.var([l[1] for l in clt_dict[i] if l[0] != -1 and l[1] != -1])
+		beta_list.append(a / b)
+
+	# {クラスタ: 文書のインデックス}
+	clt_dict = collections.defaultdict(list)
+	for clt, doc in zip(pred, document_list["news"]):
+		clt_dict[clt].append(doc)
+
+	# 単語
+	annotate_words = []
+
+	for i in range(0, cluster):
+		# (単語, 出現数)
+		words = annotation.count_words([l for l in clt_dict[i]])
+
+		# 単語のスコアを取得
+		scores = []
+		for word in words:
+			try:
+				scores.append(annotation.get_score(prob_wordvecs[word[0]], word[1]))
+			except:
+				scores.append(0)
+
+			# クラスタのスコアの高い単語を取得
+			topic_words = []
+
+		for i in range(0, 10):
+			try:
+				topic_word = words.pop(np.argmax(scores))[0]
+			except:
+				topic_word = "null"
+			topic_words.append(topic_word)
+			try:
+				scores.pop(np.argmax(scores))
+			except:
+				continue
+
+		annotate_words.append(", ".join(topic_words))
+
+	for i, word, stock in zip(range(0, cluster), annotate_words, beta_list):
+		print(str(stock) + ": " + word)
 
 def get_production_increase_rate(company, date, stocks):
 	"""
